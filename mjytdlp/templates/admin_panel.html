@@ -18,6 +18,7 @@
       code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
       .btn { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #22c55e; color: white; font-weight: 700; }
       .btn2 { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #ef4444; color: white; font-weight: 700; }
+      .btn-sm { padding: 6px 8px; font-size: 12px; border-radius: 8px; }
       .notice { margin-top: 10px; font-size: 13px; font-weight: 600; }
       .notice.ok { color: #22c55e; }
       .notice.bad { color: #ef4444; }
@@ -48,19 +49,20 @@
 
       <div class="card">
         <h2>Cookies 管理</h2>
-        <div class="muted">默认 cookies：<code>{{ cookies.path }}</code>。多平台可上传命名 cookies，例如 <code>youtube</code> / <code>bilibili</code> / <code>douyin</code>。</div>
+        <div class="muted">默认 cookies：<code>{{ cookies.path }}</code>。支持 Netscape 或 Cookie-Editor JSON。</div>
+        <div class="muted">命名 cookies 示例：<code>youtube</code> / <code>bilibili</code> / <code>douyin</code>，调用时用 <code>options.cookies_name</code>。</div>
         <div class="kv" style="margin-top: 10px;">
-          <div>当前状态</div>
+          <div>默认状态</div>
           <div>{% if cookies.exists %}已上传{% else %}未上传{% endif %}</div>
-          <div>文件大小</div>
+          <div>默认大小</div>
           <div>{% if cookies.size is not none %}{{ cookies.size }} bytes{% else %}-{% endif %}</div>
-          <div>更新时间</div>
+          <div>默认更新时间</div>
           <div>{% if cookies.mtime %}{{ cookies.mtime }}{% else %}-{% endif %}</div>
         </div>
 
         <form method="post" action="{{ url_for('admin.cookies_upload') }}" enctype="multipart/form-data">
           <div class="row">
-            <input type="file" name="cookies_file" accept=".txt" required />
+            <input type="file" name="cookies_file" accept=".txt,.json,.js" required />
             <input type="text" name="cookies_name" placeholder="可选：命名（如 youtube）" />
             <button class="btn" type="submit">上传</button>
           </div>
@@ -78,18 +80,27 @@
             <thead>
               <tr>
                 <th>名称</th>
+                <th>调用名</th>
                 <th>大小</th>
                 <th>更新时间</th>
                 <th>路径</th>
+                <th>删除</th>
               </tr>
             </thead>
             <tbody>
               {% for c in cookies.list %}
                 <tr>
                   <td><code>{{ c.name }}</code></td>
+                  <td><code>{{ c.short_name }}</code></td>
                   <td>{% if c.size is not none %}{{ c.size }} bytes{% else %}-{% endif %}</td>
                   <td>{% if c.mtime %}{{ c.mtime }}{% else %}-{% endif %}</td>
                   <td><code>{{ c.path }}</code></td>
+                  <td>
+                    <form method="post" action="{{ url_for('admin.cookies_delete') }}">
+                      <input type="hidden" name="cookies_name" value="{{ c.short_name }}" />
+                      <button class="btn2 btn-sm" type="submit" title="删除">&#128465;</button>
+                    </form>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>

@@ -55,8 +55,9 @@ MCP 入口：
 
 ## YouTube/多平台验证（cookies）
 - 在控制面板 `/admin` 上传 `cookies.txt`（默认，会保存到 `<data_dir>/cookies.txt`）。
+- 支持 **Netscape** 或 **Cookie-Editor JSON**，系统会自动转换为 Netscape 格式。
 - 也可上传命名 cookies（例如 `youtube` / `bilibili` / `douyin`），文件保存到 `<data_dir>/cookies/<name>.txt`。
-- yt-dlp 会自动使用默认 cookies；也可在工具参数里传：
+- 调用时可传：
   - `options.cookies_name`（优先使用命名 cookies）
   - 或 `options.cookies_path`（指定完整路径）
 

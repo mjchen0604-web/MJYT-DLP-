@@ -151,16 +151,33 @@ def _list_named_cookies() -> List[Dict[str, Any]]:
                 continue
             try:
                 size = os.path.getsize(path)
-                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
+                mtime_ts = os.path.getmtime(path)
+                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mtime_ts))
             except Exception:
                 size = None
                 mtime = None
+                mtime_ts = None
             short_name = filename[:-4] if filename.endswith(".txt") else filename
-            out.append({"name": filename, "short_name": short_name, "path": path, "size": size, "mtime": mtime})
+            out.append(
+                {
+                    "name": filename,
+                    "short_name": short_name,
+                    "path": path,
+                    "size": size,
+                    "mtime": mtime,
+                    "mtime_ts": mtime_ts,
+                }
+            )
     except Exception:
         return out
     out.sort(key=lambda item: item.get("name") or "")
     return out
+
+
+def _latest_named_cookie(named: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+    if not named:
+        return None
+    return max(named, key=lambda item: item.get("mtime_ts") or 0)
 
 
 def _cookies_status() -> Dict[str, Any]:
@@ -174,7 +191,15 @@ def _cookies_status() -> Dict[str, Any]:
             mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
         except Exception:
             pass
-    return {"path": path, "exists": exists, "size": size, "mtime": mtime, "list": _list_named_cookies()}
+    named = _list_named_cookies()
+    return {
+        "path": path,
+        "exists": exists,
+        "size": size,
+        "mtime": mtime,
+        "list": named,
+        "latest": _latest_named_cookie(named),
+    }
 
 
 def _cookies_notice(code: str | None) -> Dict[str, str] | None:

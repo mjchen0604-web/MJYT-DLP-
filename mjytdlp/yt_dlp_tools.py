@@ -30,6 +30,31 @@ def _named_cookies_path(name: str) -> str:
     return os.path.join(get_data_dir(), "cookies", safe)
 
 
+def _latest_named_cookies_path() -> str:
+    folder = os.path.join(get_data_dir(), "cookies")
+    try:
+        if not os.path.isdir(folder):
+            return ""
+        newest_path = ""
+        newest_mtime = -1.0
+        for filename in os.listdir(folder):
+            if not filename.endswith(".txt"):
+                continue
+            path = os.path.join(folder, filename)
+            if not os.path.isfile(path):
+                continue
+            try:
+                mtime = os.path.getmtime(path)
+            except Exception:
+                continue
+            if mtime > newest_mtime:
+                newest_mtime = mtime
+                newest_path = path
+        return newest_path
+    except Exception:
+        return ""
+
+
 def _build_ydl_opts(options: Dict[str, Any]) -> Dict[str, Any]:
     opts: Dict[str, Any] = {
         "skip_download": True,
@@ -51,6 +76,10 @@ def _build_ydl_opts(options: Dict[str, Any]) -> Dict[str, Any]:
             default_path = _default_cookies_path()
             if os.path.isfile(default_path):
                 cookies_path = default_path
+        if not cookies_path:
+            latest_named = _latest_named_cookies_path()
+            if latest_named:
+                cookies_path = latest_named
     if cookies_path:
         opts["cookiefile"] = cookies_path
 

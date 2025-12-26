@@ -52,7 +52,11 @@
         <div class="muted">默认 cookies：<code>{{ cookies.path }}</code>。支持 Netscape 或 Cookie-Editor JSON。</div>
         <div class="muted">命名 cookies 示例：<code>youtube</code> / <code>bilibili</code> / <code>douyin</code>，调用时用 <code>options.cookies_name</code>。</div>
         <div class="kv" style="margin-top: 10px;">
-          <div>默认状态</div>
+          <div>总体状态</div>
+          <div>{% if cookies.exists or cookies.list %}已上传{% else %}未上传{% endif %}</div>
+          <div>命名数量</div>
+          <div>{{ cookies.list|length }}</div>
+          <div>默认 cookies</div>
           <div>{% if cookies.exists %}已上传{% else %}未上传{% endif %}</div>
           <div>默认大小</div>
           <div>{% if cookies.size is not none %}{{ cookies.size }} bytes{% else %}-{% endif %}</div>

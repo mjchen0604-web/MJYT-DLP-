@@ -47,9 +47,18 @@ MCP 入口：
    - `MJYTDLP_HOME=/data`（推荐）
 4) 部署后打开 `/admin` 和 `/admin/mcp` 配置 Provider。
 
-## YouTube 验证（cookies）
-- 在控制面板 `/admin` 上传 `cookies.txt`（会保存到 `<data_dir>/cookies.txt`）。
-- yt-dlp 会自动使用该 cookies 文件；也可在工具参数里传 `options.cookies_path` 覆盖路径。
+## ASR 转写（whisper-asr-webservice）
+1) 先单独部署 ASR 服务（例：`http://你的ASR服务器IP:9000`）。
+2) 在 Render 环境变量里设置：
+   - `MJYTDLP_ASR_URL=http://你的ASR服务器IP:9000`
+   - （可选）`MJYTDLP_ASR_API_KEY`、`MJYTDLP_ASR_AUTH_HEADER`、`MJYTDLP_ASR_AUTH_PREFIX`
+
+## YouTube/多平台验证（cookies）
+- 在控制面板 `/admin` 上传 `cookies.txt`（默认，会保存到 `<data_dir>/cookies.txt`）。
+- 也可上传命名 cookies（例如 `youtube` / `bilibili` / `douyin`），文件保存到 `<data_dir>/cookies/<name>.txt`。
+- yt-dlp 会自动使用默认 cookies；也可在工具参数里传：
+  - `options.cookies_name`（优先使用命名 cookies）
+  - 或 `options.cookies_path`（指定完整路径）
 
 ## 工具列表
 
@@ -63,6 +72,9 @@ yt-dlp（不下载视频文件）：
 - `list_subs`：列出字幕轨道（含下载直链）
 - `download_subs`：返回字幕文本，或返回字幕直链
 - `version`：yt-dlp 版本
+
+ASR：
+- `transcribe`：转写音频为字幕/文本（会先下载音频，再上传到外部 ASR）
 
 ## 示例 MCP 配置（SSE）
 ```

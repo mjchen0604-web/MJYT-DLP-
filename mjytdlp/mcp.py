@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from flask import Blueprint, Response, jsonify, request
 
+from .asr_tools import AsrError, transcribe
 from .mcp_settings import load_mcp_settings
 from .mcp_translate import ProviderError, translate_text
 from .yt_dlp_tools import YtDlpError, download_subs, formats, list_subs, probe, yt_dlp_version
@@ -67,6 +68,7 @@ def _tool_schemas() -> List[Dict[str, Any]]:
         "type": "object",
         "properties": {
             "cookies_path": {"type": "string", "description": "cookies.txt 路径（可选）"},
+            "cookies_name": {"type": "string", "description": "命名 cookies（可选，如 youtube/douyin/bilibili）"},
             "proxy": {"type": "string", "description": "代理地址（可选）"},
             "user_agent": {"type": "string", "description": "自定义 User-Agent（可选）"},
             "referer": {"type": "string", "description": "自定义 Referer（可选）"},
@@ -151,6 +153,25 @@ def _tool_schemas() -> List[Dict[str, Any]]:
                     "options": options_schema,
                 },
                 "required": ["url", "lang"],
+            },
+        },
+        {
+            "name": "transcribe",
+            "description": "转写音频为字幕/文本（通过外部 ASR 服务）。",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "视频链接"},
+                    "output": {"type": "string", "description": "输出格式：srt/vtt/txt/json"},
+                    "language": {"type": "string", "description": "语言代码（可选）"},
+                    "task": {"type": "string", "description": "transcribe/translate"},
+                    "initial_prompt": {"type": "string", "description": "提示词（可选）"},
+                    "encode": {"type": "boolean", "description": "是否先转码（可选）"},
+                    "timeout": {"type": "integer", "description": "超时秒数（可选）"},
+                    "max_mb": {"type": "integer", "description": "最大下载体积（MB，可选）"},
+                    "options": options_schema,
+                },
+                "required": ["url"],
             },
         },
         {
@@ -282,6 +303,30 @@ def _handle_tools_call(params: Any) -> Dict[str, Any]:
         )
         return _json_content(result)
 
+    if name == "transcribe":
+        url = args.get("url")
+        if not isinstance(url, str) or not url.strip():
+            raise ProviderError("缺少 url。")
+        output = args.get("output") if isinstance(args.get("output"), str) else "srt"
+        language = args.get("language") if isinstance(args.get("language"), str) else None
+        task = args.get("task") if isinstance(args.get("task"), str) else "transcribe"
+        initial_prompt = args.get("initial_prompt") if isinstance(args.get("initial_prompt"), str) else None
+        encode = True if args.get("encode") is None else bool(args.get("encode"))
+        timeout = args.get("timeout") if isinstance(args.get("timeout"), int) else None
+        max_mb = args.get("max_mb") if isinstance(args.get("max_mb"), int) else None
+        result = transcribe(
+            url.strip(),
+            _get_options(args),
+            output=output,
+            language=language,
+            task=task,
+            initial_prompt=initial_prompt,
+            encode=encode,
+            timeout=timeout,
+            max_mb=max_mb,
+        )
+        return _json_content(result)
+
     if name == "version":
         return _json_content(yt_dlp_version())
 
@@ -321,7 +366,7 @@ def _handle_rpc_message(message: Any) -> Optional[Dict[str, Any]]:
         if method == "prompts/get":
             return _jsonrpc_error(-32601, "Prompt not found", req_id)
         return _jsonrpc_error(-32601, "Method not found", req_id)
-    except (ProviderError, YtDlpError) as exc:
+    except (ProviderError, YtDlpError, AsrError) as exc:
         return {
             "jsonrpc": "2.0",
             "id": req_id,

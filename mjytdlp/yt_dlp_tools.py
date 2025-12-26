@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -20,6 +21,15 @@ def _default_cookies_path() -> str:
     return os.path.join(get_data_dir(), "cookies.txt")
 
 
+def _named_cookies_path(name: str) -> str:
+    safe = re.sub(r"[^a-zA-Z0-9_-]", "", name).strip()
+    if not safe:
+        return ""
+    if not safe.endswith(".txt"):
+        safe = f"{safe}.txt"
+    return os.path.join(get_data_dir(), "cookies", safe)
+
+
 def _build_ydl_opts(options: Dict[str, Any]) -> Dict[str, Any]:
     opts: Dict[str, Any] = {
         "skip_download": True,
@@ -31,10 +41,16 @@ def _build_ydl_opts(options: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     cookies_path = (options.get("cookies_path") or "").strip() if isinstance(options.get("cookies_path"), str) else ""
+    cookies_name = (options.get("cookies_name") or "").strip() if isinstance(options.get("cookies_name"), str) else ""
     if not cookies_path:
-        default_path = _default_cookies_path()
-        if os.path.isfile(default_path):
-            cookies_path = default_path
+        if cookies_name:
+            named_path = _named_cookies_path(cookies_name)
+            if named_path and os.path.isfile(named_path):
+                cookies_path = named_path
+        if not cookies_path:
+            default_path = _default_cookies_path()
+            if os.path.isfile(default_path):
+                cookies_path = default_path
     if cookies_path:
         opts["cookiefile"] = cookies_path
 
@@ -155,6 +171,46 @@ def formats(url: str, options: Dict[str, Any], limit: Optional[int] = None) -> D
         "webpage_url": info.get("webpage_url"),
         "http_headers": _safe_headers(info),
         "formats": items,
+    }
+
+
+def _pick_audio_format(info: Dict[str, Any]) -> Dict[str, Any]:
+    formats_list = info.get("formats") if isinstance(info.get("formats"), list) else []
+    audio_only: List[Dict[str, Any]] = []
+    for fmt in formats_list:
+        if not isinstance(fmt, dict):
+            continue
+        if fmt.get("vcodec") == "none" and fmt.get("acodec") not in (None, "none"):
+            audio_only.append(fmt)
+
+    def _score(fmt: Dict[str, Any]) -> Tuple[float, float]:
+        bitrate = fmt.get("abr") or fmt.get("tbr") or 0
+        size = fmt.get("filesize") or fmt.get("filesize_approx") or 0
+        return float(bitrate), float(size)
+
+    if audio_only:
+        return max(audio_only, key=_score)
+
+    candidates = [f for f in formats_list if isinstance(f, dict) and f.get("url")]
+    if not candidates:
+        raise YtDlpError("No audio stream found")
+    return max(candidates, key=_score)
+
+
+def audio_stream(url: str, options: Dict[str, Any]) -> Dict[str, Any]:
+    info = _extract_info(url, options)
+    fmt = _pick_audio_format(info)
+    return {
+        "id": info.get("id"),
+        "title": info.get("title"),
+        "webpage_url": info.get("webpage_url"),
+        "format_id": fmt.get("format_id"),
+        "ext": fmt.get("ext"),
+        "acodec": fmt.get("acodec"),
+        "abr": fmt.get("abr"),
+        "filesize": fmt.get("filesize") or fmt.get("filesize_approx"),
+        "download_url": fmt.get("url"),
+        "http_headers": _safe_headers(info, fmt),
     }
 
 

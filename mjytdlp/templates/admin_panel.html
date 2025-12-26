@@ -21,6 +21,8 @@
       .notice { margin-top: 10px; font-size: 13px; font-weight: 600; }
       .notice.ok { color: #22c55e; }
       .notice.bad { color: #ef4444; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid rgba(127,127,127,.2); vertical-align: top; }
       a { color: inherit; }
     </style>
   </head>
@@ -45,8 +47,8 @@
       </div>
 
       <div class="card">
-        <h2>YouTube cookies</h2>
-        <div class="muted">上传 cookies.txt 用于通过 YouTube 验证。系统会自动使用 <code>{{ cookies.path }}</code>。</div>
+        <h2>Cookies 管理</h2>
+        <div class="muted">默认 cookies：<code>{{ cookies.path }}</code>。多平台可上传命名 cookies，例如 <code>youtube</code> / <code>bilibili</code> / <code>douyin</code>。</div>
         <div class="kv" style="margin-top: 10px;">
           <div>当前状态</div>
           <div>{% if cookies.exists %}已上传{% else %}未上传{% endif %}</div>
@@ -59,15 +61,40 @@
         <form method="post" action="{{ url_for('admin.cookies_upload') }}" enctype="multipart/form-data">
           <div class="row">
             <input type="file" name="cookies_file" accept=".txt" required />
-            <button class="btn" type="submit">上传 cookies.txt</button>
+            <input type="text" name="cookies_name" placeholder="可选：命名（如 youtube）" />
+            <button class="btn" type="submit">上传</button>
           </div>
         </form>
 
         <form method="post" action="{{ url_for('admin.cookies_delete') }}">
           <div class="row">
-            <button class="btn2" type="submit">删除 cookies.txt</button>
+            <input type="text" name="cookies_name" placeholder="可选：命名（如 youtube）" />
+            <button class="btn2" type="submit">删除</button>
           </div>
         </form>
+
+        {% if cookies.list %}
+          <table>
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>大小</th>
+                <th>更新时间</th>
+                <th>路径</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in cookies.list %}
+                <tr>
+                  <td><code>{{ c.name }}</code></td>
+                  <td>{% if c.size is not none %}{{ c.size }} bytes{% else %}-{% endif %}</td>
+                  <td>{% if c.mtime %}{{ c.mtime }}{% else %}-{% endif %}</td>
+                  <td><code>{{ c.path }}</code></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
 
         {% if cookies_notice %}
           <div class="notice {{ cookies_notice.kind }}">{{ cookies_notice.text }}</div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Any, Dict, List
 
@@ -73,6 +74,44 @@ def _cookies_path() -> str:
     return os.path.join(get_data_dir(), "cookies.txt")
 
 
+def _cookies_dir() -> str:
+    return os.path.join(get_data_dir(), "cookies")
+
+
+def _safe_cookie_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]", "", name).strip()
+    if not cleaned:
+        return ""
+    if not cleaned.endswith(".txt"):
+        cleaned = f"{cleaned}.txt"
+    return cleaned
+
+
+def _list_named_cookies() -> List[Dict[str, Any]]:
+    folder = _cookies_dir()
+    out: List[Dict[str, Any]] = []
+    try:
+        if not os.path.isdir(folder):
+            return out
+        for filename in os.listdir(folder):
+            if not filename.endswith(".txt"):
+                continue
+            path = os.path.join(folder, filename)
+            if not os.path.isfile(path):
+                continue
+            try:
+                size = os.path.getsize(path)
+                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
+            except Exception:
+                size = None
+                mtime = None
+            out.append({"name": filename, "path": path, "size": size, "mtime": mtime})
+    except Exception:
+        return out
+    out.sort(key=lambda item: item.get("name") or "")
+    return out
+
+
 def _cookies_status() -> Dict[str, Any]:
     path = _cookies_path()
     exists = os.path.isfile(path)
@@ -84,15 +123,20 @@ def _cookies_status() -> Dict[str, Any]:
             mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
         except Exception:
             pass
-    return {"path": path, "exists": exists, "size": size, "mtime": mtime}
+    return {"path": path, "exists": exists, "size": size, "mtime": mtime, "list": _list_named_cookies()}
 
 
 def _cookies_notice(code: str | None) -> Dict[str, str] | None:
     mapping = {
         "uploaded": {"kind": "ok", "text": "cookies.txt 上传成功。"},
         "upload_failed": {"kind": "bad", "text": "cookies.txt 上传失败，请重试。"},
+        "named_uploaded": {"kind": "ok", "text": "指定 cookies 文件上传成功。"},
+        "named_upload_failed": {"kind": "bad", "text": "指定 cookies 文件上传失败。"},
+        "name_invalid": {"kind": "bad", "text": "cookies 名称不合法，只能用字母/数字/下划线/短横线。"},
         "delete_failed": {"kind": "bad", "text": "cookies.txt 删除失败。"},
         "deleted": {"kind": "ok", "text": "cookies.txt 已删除。"},
+        "named_deleted": {"kind": "ok", "text": "指定 cookies 文件已删除。"},
+        "named_delete_failed": {"kind": "bad", "text": "指定 cookies 文件删除失败。"},
         "missing": {"kind": "bad", "text": "未找到 cookies.txt。"},
         "empty": {"kind": "bad", "text": "请选择 cookies.txt 文件。"},
     }
@@ -343,7 +387,18 @@ def cookies_upload() -> Response:
     if file is None or not file.filename:
         return redirect(url_for("admin.panel", cookies="empty"))
 
-    target = _cookies_path()
+    name = (request.form.get("cookies_name") or "").strip()
+    if name:
+        safe_name = _safe_cookie_name(name)
+        if not safe_name:
+            return redirect(url_for("admin.panel", cookies="name_invalid"))
+        target = os.path.join(_cookies_dir(), safe_name)
+        notice = "named_uploaded"
+        failure = "named_upload_failed"
+    else:
+        target = _cookies_path()
+        notice = "uploaded"
+        failure = "upload_failed"
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         file.save(target)
@@ -351,9 +406,9 @@ def cookies_upload() -> Response:
             os.chmod(target, 0o600)
         except Exception:
             pass
-        return redirect(url_for("admin.panel", cookies="uploaded"))
+        return redirect(url_for("admin.panel", cookies=notice))
     except Exception:
-        return redirect(url_for("admin.panel", cookies="upload_failed"))
+        return redirect(url_for("admin.panel", cookies=failure))
 
 
 @admin_bp.post("/yt-dlp/cookies/delete")
@@ -361,11 +416,24 @@ def cookies_delete() -> Response:
     if not session.get("mjytdlp_admin"):
         return redirect(url_for("admin.login_page"))
 
-    target = _cookies_path()
+    name = (request.form.get("cookies_name") or "").strip()
+    if name:
+        safe_name = _safe_cookie_name(name)
+        if not safe_name:
+            return redirect(url_for("admin.panel", cookies="name_invalid"))
+        target = os.path.join(_cookies_dir(), safe_name)
+        deleted_code = "named_deleted"
+        missing_code = "missing"
+        failure_code = "named_delete_failed"
+    else:
+        target = _cookies_path()
+        deleted_code = "deleted"
+        missing_code = "missing"
+        failure_code = "delete_failed"
     try:
         os.remove(target)
-        return redirect(url_for("admin.panel", cookies="deleted"))
+        return redirect(url_for("admin.panel", cookies=deleted_code))
     except FileNotFoundError:
-        return redirect(url_for("admin.panel", cookies="missing"))
+        return redirect(url_for("admin.panel", cookies=missing_code))
     except Exception:
-        return redirect(url_for("admin.panel", cookies="delete_failed"))
+        return redirect(url_for("admin.panel", cookies=failure_code))

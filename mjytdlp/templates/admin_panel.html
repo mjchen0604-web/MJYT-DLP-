@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MJYT-DLP 控制面板</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
+      .wrap { max-width: 980px; margin: 32px auto; padding: 0 16px; }
+      .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .card { margin-top: 16px; border: 1px solid rgba(127,127,127,.3); border-radius: 12px; padding: 16px; background: rgba(127,127,127,.08); }
+      h1 { margin: 0; font-size: 22px; }
+      h2 { margin: 0 0 10px; font-size: 16px; }
+      .kv { display: grid; grid-template-columns: 180px 1fr; gap: 6px 10px; font-size: 13px; }
+      .row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+      .muted { opacity: .8; font-size: 12px; line-height: 1.5; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .btn { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #22c55e; color: white; font-weight: 700; }
+      .btn2 { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #ef4444; color: white; font-weight: 700; }
+      .notice { margin-top: 10px; font-size: 13px; font-weight: 600; }
+      .notice.ok { color: #22c55e; }
+      .notice.bad { color: #ef4444; }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <h1>MJYT-DLP 控制面板</h1>
+        <form method="post" action="{{ url_for('admin.logout_post') }}">
+          <button class="btn2" type="submit">退出登录</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>服务信息</h2>
+        <div class="kv">
+          <div>健康检查</div><div><code>{{ request.host_url }}health</code></div>
+          <div>MCP SSE</div><div><code>{{ request.host_url }}mcp/sse</code></div>
+          <div>MCP HTTP</div><div><code>{{ request.host_url }}mcp</code></div>
+          <div>翻译 Provider 配置</div><div><a href="{{ url_for('admin.mcp_panel') }}">/admin/mcp</a></div>
+          <div>配置文件路径</div><div><code>{{ home_dir }}/mcp_settings.json</code></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>YouTube cookies</h2>
+        <div class="muted">上传 cookies.txt 用于通过 YouTube 验证。系统会自动使用 <code>{{ cookies.path }}</code>。</div>
+        <div class="kv" style="margin-top: 10px;">
+          <div>当前状态</div>
+          <div>{% if cookies.exists %}已上传{% else %}未上传{% endif %}</div>
+          <div>文件大小</div>
+          <div>{% if cookies.size is not none %}{{ cookies.size }} bytes{% else %}-{% endif %}</div>
+          <div>更新时间</div>
+          <div>{% if cookies.mtime %}{{ cookies.mtime }}{% else %}-{% endif %}</div>
+        </div>
+
+        <form method="post" action="{{ url_for('admin.cookies_upload') }}" enctype="multipart/form-data">
+          <div class="row">
+            <input type="file" name="cookies_file" accept=".txt" required />
+            <button class="btn" type="submit">上传 cookies.txt</button>
+          </div>
+        </form>
+
+        <form method="post" action="{{ url_for('admin.cookies_delete') }}">
+          <div class="row">
+            <button class="btn2" type="submit">删除 cookies.txt</button>
+          </div>
+        </form>
+
+        {% if cookies_notice %}
+          <div class="notice {{ cookies_notice.kind }}">{{ cookies_notice.text }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </body>
+</html>

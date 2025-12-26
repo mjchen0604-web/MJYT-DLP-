@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>翻译 Provider 配置</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
+      .wrap { max-width: 1020px; margin: 32px auto; padding: 0 16px; }
+      .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .card { margin-top: 16px; border: 1px solid rgba(127,127,127,.3); border-radius: 12px; padding: 16px; background: rgba(127,127,127,.08); }
+      h1 { margin: 0; font-size: 22px; }
+      h2 { margin: 0 0 10px; font-size: 16px; }
+      label { display: block; margin: 8px 0 6px; opacity: .9; }
+      select, input[type="text"], textarea { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(127,127,127,.35); background: transparent; }
+      textarea { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+      .row input[type="checkbox"] { transform: scale(1.1); }
+      .btn { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #22c55e; color: white; font-weight: 700; }
+      .btn2 { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #ef4444; color: white; font-weight: 700; }
+      .btn3 { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; background: #0ea5e9; color: white; font-weight: 700; text-decoration: none; }
+      .muted { opacity: .8; font-size: 12px; line-height: 1.5; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid rgba(127,127,127,.2); vertical-align: top; }
+      .ok { color: #22c55e; }
+      .bad { color: #ef4444; }
+      .error { color: #ef4444; font-weight: 600; margin-top: 8px; }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <h1>翻译 Provider 配置</h1>
+        <div class="row">
+          <a class="btn3" href="{{ url_for('admin.panel') }}">返回</a>
+          <form method="post" action="{{ url_for('admin.logout_post') }}">
+            <button class="btn2" type="submit">退出登录</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>入口信息</h2>
+        <div class="muted">
+          MCP SSE：<code>{{ request.host_url }}mcp/sse</code><br />
+          MCP HTTP：<code>{{ request.host_url }}mcp</code><br />
+          配置文件：<code>{{ home_dir }}/mcp_settings.json</code>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>默认 Provider</h2>
+        <form method="post" action="{{ url_for('admin.mcp_default_set') }}">
+          <div class="row">
+            <select name="default_provider">
+              <option value="">(未设置)</option>
+              {% for p in providers %}
+                <option value="{{ p.id }}" {% if default_provider == p.id %}selected{% endif %}>{{ p.label }} ({{ p.id }})</option>
+              {% endfor %}
+            </select>
+            <button class="btn" type="submit">保存默认</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>已配置 Provider</h2>
+        {% if providers %}
+          <table>
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>名称</th>
+                <th>模型</th>
+                <th>endpoint/base</th>
+                <th>API Key</th>
+                <th>状态</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in providers %}
+                <tr>
+                  <td><code>{{ p.id }}</code></td>
+                  <td>{{ p.label }}</td>
+                  <td>{{ p.model or '-' }}</td>
+                  <td>
+                    {% if p.endpoint_url %}<div><code>{{ p.endpoint_url }}</code></div>{% endif %}
+                    {% if p.base_url %}<div><code>{{ p.base_url }}</code></div>{% endif %}
+                  </td>
+                  <td>
+                    {% if p.api_key_masked %}<span class="ok">{{ p.api_key_masked }}</span>{% else %}<span class="bad">未设置</span>{% endif %}
+                    {% if p.api_key_env %}<div class="muted">env: <code>{{ p.api_key_env }}</code></div>{% endif %}
+                  </td>
+                  <td>{% if p.enabled %}<span class="ok">启用</span>{% else %}<span class="bad">禁用</span>{% endif %}</td>
+                  <td>
+                    <form method="post" action="{{ url_for('admin.mcp_provider_delete') }}">
+                      <input type="hidden" name="id" value="{{ p.id }}" />
+                      <button class="btn2" type="submit">删除</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="muted" style="margin-top: 8px;">编辑：在下方表单填写同名 id 即可覆盖。</div>
+        {% else %}
+          <div class="muted">暂无 provider，请先添加。</div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h2>添加 / 更新 Provider</h2>
+        <form method="post" action="{{ url_for('admin.mcp_provider_upsert') }}">
+          <div class="grid">
+            <div>
+              <label>id（唯一）</label>
+              <input type="text" name="id" placeholder="my-provider" />
+            </div>
+            <div>
+              <label>名称</label>
+              <input type="text" name="label" placeholder="可读名称" />
+            </div>
+            <div>
+              <label>base_url（可选）</label>
+              <input type="text" name="base_url" placeholder="https://api.example.com" />
+            </div>
+            <div>
+              <label>endpoint_url（可选，优先）</label>
+              <input type="text" name="endpoint_url" placeholder="https://api.example.com/v1/chat/completions" />
+            </div>
+            <div>
+              <label>模型</label>
+              <input type="text" name="model" placeholder="模型名称" />
+            </div>
+            <div>
+              <label>api_key（留空=保留原值）</label>
+              <input type="text" name="api_key" placeholder="密钥" />
+              <div class="row">
+                <input type="checkbox" name="clear_api_key" value="1" />
+                <div class="muted">清空已保存的 api_key</div>
+              </div>
+            </div>
+            <div>
+              <label>api_key_env（可选）</label>
+              <input type="text" name="api_key_env" placeholder="ENV_VAR_NAME" />
+            </div>
+            <div>
+              <label>auth_header</label>
+              <input type="text" name="auth_header" placeholder="Authorization" />
+            </div>
+            <div>
+              <label>auth_prefix</label>
+              <input type="text" name="auth_prefix" placeholder="Bearer " />
+            </div>
+            <div>
+              <label>timeout（秒，可选）</label>
+              <input type="text" name="timeout" placeholder="30" />
+            </div>
+          </div>
+          <label>extra_headers（JSON，可选）</label>
+          <textarea name="extra_headers" placeholder='{"X-Api-Key":"xxx"}'></textarea>
+
+          <div class="row">
+            <input type="checkbox" name="enabled" value="1" checked />
+            <div>启用 Provider</div>
+            <input type="checkbox" name="set_default" value="1" />
+            <div>设为默认</div>
+          </div>
+
+          {% if error %}
+            <div class="error">{{ error }}</div>
+          {% endif %}
+
+          <div style="margin-top: 12px;">
+            <button class="btn" type="submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

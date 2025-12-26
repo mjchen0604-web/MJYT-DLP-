@@ -1,0 +1,17 @@
+services:
+- type: web
+  name: mjyt-dlp
+  env: docker
+  plan: starter
+  autoDeploy: true
+  disk:
+    name: mjyt-dlp-data
+    mountPath: /data
+    sizeGB: 1
+  envVars:
+  - key: MJYTDLP_HOME
+    value: /data
+  - key: MJYTDLP_ADMIN_PASSWORD
+    sync: false
+  - key: MJYTDLP_SECRET_KEY
+    sync: false

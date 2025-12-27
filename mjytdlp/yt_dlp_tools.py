@@ -212,15 +212,32 @@ def _pick_audio_format(info: Dict[str, Any]) -> Dict[str, Any]:
         if fmt.get("vcodec") == "none" and fmt.get("acodec") not in (None, "none"):
             audio_only.append(fmt)
 
+    def _is_hls(fmt: Dict[str, Any]) -> bool:
+        protocol = str(fmt.get("protocol") or "").lower()
+        ext = str(fmt.get("ext") or "").lower()
+        url = str(fmt.get("url") or "").lower()
+        if "m3u8" in protocol:
+            return True
+        if ext == "m3u8":
+            return True
+        if ".m3u8" in url:
+            return True
+        return False
+
     def _score(fmt: Dict[str, Any]) -> Tuple[float, float]:
         bitrate = fmt.get("abr") or fmt.get("tbr") or 0
         size = fmt.get("filesize") or fmt.get("filesize_approx") or 0
         return float(bitrate), float(size)
 
     if audio_only:
+        direct_audio = [f for f in audio_only if not _is_hls(f)]
+        if direct_audio:
+            return max(direct_audio, key=_score)
         return max(audio_only, key=_score)
 
-    candidates = [f for f in formats_list if isinstance(f, dict) and f.get("url")]
+    candidates = [
+        f for f in formats_list if isinstance(f, dict) and f.get("url") and not _is_hls(f)
+    ]
     if not candidates:
         raise YtDlpError("No audio stream found")
     return max(candidates, key=_score)

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import tempfile
+import uuid
 from typing import Any, Dict, Optional
 
 import requests
+import yt_dlp
 
 from .utils import get_data_dir
-from .yt_dlp_tools import YtDlpError, audio_stream
+from .yt_dlp_tools import YtDlpError, _build_ydl_opts, audio_stream
 
 
 DEFAULT_ASR_TIMEOUT = 600
@@ -66,6 +68,72 @@ def _download_audio(
         resp.close()
 
 
+def _is_hls_audio(download_url: str, protocol: Optional[str]) -> bool:
+    proto = str(protocol or "").lower()
+    url = download_url.lower()
+    if "m3u8" in proto:
+        return True
+    if ".m3u8" in url:
+        return True
+    return False
+
+
+def _download_audio_via_ytdlp(
+    video_url: str,
+    options: Dict[str, Any],
+    format_id: Optional[str],
+    timeout: int,
+    max_mb: Optional[int],
+) -> str:
+    tmp_dir = os.path.join(get_data_dir(), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    base = os.path.join(tmp_dir, f"asr_{uuid.uuid4().hex}")
+    outtmpl = f"{base}.%(ext)s"
+
+    ydl_opts = _build_ydl_opts(options)
+    ydl_opts.update(
+        {
+            "skip_download": False,
+            "quiet": True,
+            "no_warnings": True,
+            "noplaylist": True,
+            "outtmpl": outtmpl,
+            "format": format_id or "bestaudio/best",
+            "socket_timeout": int(timeout),
+        }
+    )
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
+    except Exception as exc:
+        raise AsrError(f"下载音频失败：{exc}") from exc
+
+    base_name = os.path.basename(base)
+    candidates = [
+        os.path.join(tmp_dir, name)
+        for name in os.listdir(tmp_dir)
+        if name.startswith(base_name)
+    ]
+    if not candidates:
+        raise AsrError("未找到下载的音频文件。")
+
+    tmp_path = max(candidates, key=lambda path: os.path.getmtime(path))
+    if not os.path.isfile(tmp_path):
+        raise AsrError("未找到下载的音频文件。")
+
+    if max_mb is not None:
+        size = os.path.getsize(tmp_path)
+        if size > max_mb * 1024 * 1024:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+            raise AsrError(f"音频大小超过限制（>{max_mb}MB）。")
+
+    return tmp_path
+
+
 def transcribe(
     url: str,
     options: Dict[str, Any],
@@ -90,13 +158,23 @@ def transcribe(
     suffix = f".{ext}" if ext else ".audio"
     timeout_val = int(timeout) if isinstance(timeout, int) and timeout > 0 else DEFAULT_ASR_TIMEOUT
 
-    tmp_path = _download_audio(
-        download_url,
-        audio.get("http_headers") if isinstance(audio.get("http_headers"), dict) else {},
-        timeout_val,
-        max_mb,
-        suffix,
-    )
+    protocol = audio.get("protocol") if isinstance(audio.get("protocol"), str) else None
+    if _is_hls_audio(download_url, protocol):
+        tmp_path = _download_audio_via_ytdlp(
+            url,
+            options,
+            audio.get("format_id") if isinstance(audio.get("format_id"), str) else None,
+            timeout_val,
+            max_mb,
+        )
+    else:
+        tmp_path = _download_audio(
+            download_url,
+            audio.get("http_headers") if isinstance(audio.get("http_headers"), dict) else {},
+            timeout_val,
+            max_mb,
+            suffix,
+        )
 
     asr_base, asr_headers = _asr_config()
     params: Dict[str, Any] = {

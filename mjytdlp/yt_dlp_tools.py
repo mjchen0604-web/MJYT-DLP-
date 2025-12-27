@@ -252,6 +252,7 @@ def audio_stream(url: str, options: Dict[str, Any]) -> Dict[str, Any]:
         "webpage_url": info.get("webpage_url"),
         "format_id": fmt.get("format_id"),
         "ext": fmt.get("ext"),
+        "protocol": fmt.get("protocol"),
         "acodec": fmt.get("acodec"),
         "abr": fmt.get("abr"),
         "filesize": fmt.get("filesize") or fmt.get("filesize_approx"),

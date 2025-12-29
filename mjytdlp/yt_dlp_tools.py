@@ -229,18 +229,22 @@ def _pick_audio_format(info: Dict[str, Any]) -> Dict[str, Any]:
         size = fmt.get("filesize") or fmt.get("filesize_approx") or 0
         return float(bitrate), float(size)
 
+    def _has_audio(fmt: Dict[str, Any]) -> bool:
+        return fmt.get("acodec") not in (None, "none")
+
     if audio_only:
         direct_audio = [f for f in audio_only if not _is_hls(f)]
         if direct_audio:
             return max(direct_audio, key=_score)
         return max(audio_only, key=_score)
 
-    candidates = [
-        f for f in formats_list if isinstance(f, dict) and f.get("url") and not _is_hls(f)
-    ]
-    if not candidates:
+    with_audio = [f for f in formats_list if isinstance(f, dict) and f.get("url") and _has_audio(f)]
+    if not with_audio:
         raise YtDlpError("No audio stream found")
-    return max(candidates, key=_score)
+    direct_with_audio = [f for f in with_audio if not _is_hls(f)]
+    if direct_with_audio:
+        return max(direct_with_audio, key=_score)
+    return max(with_audio, key=_score)
 
 
 def audio_stream(url: str, options: Dict[str, Any]) -> Dict[str, Any]:
